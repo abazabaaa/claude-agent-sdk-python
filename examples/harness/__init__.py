@@ -15,6 +15,8 @@ from .console_renderer import ConsoleRenderer
 from .security_hooks import (
     bash_security_hook,
     get_security_hooks,
+    is_delete_protected,
+    is_write_protected,
     set_project_dir,
     write_security_hook,
 )
@@ -25,4 +27,6 @@ __all__ = [
     "write_security_hook",
     "get_security_hooks",
     "set_project_dir",
+    "is_delete_protected",
+    "is_write_protected",
 ]

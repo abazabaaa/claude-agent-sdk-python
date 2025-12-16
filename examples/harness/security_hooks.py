@@ -105,8 +105,9 @@ BLOCKED_COMMANDS: set[str] = {
     "firewall-cmd",
 }
 
-# Paths that should never be modified or deleted
-PROTECTED_PATHS: list[str] = [
+# Paths that should never be deleted (rm operations)
+# Note: Reading/navigating these paths is allowed
+PROTECTED_DELETE_PATHS: list[str] = [
     "/",
     "/bin",
     "/boot",
@@ -114,15 +115,22 @@ PROTECTED_PATHS: list[str] = [
     "/etc",
     "/lib",
     "/lib64",
-    "/opt",
     "/proc",
     "/root",
     "/sbin",
     "/sys",
     "/usr",
-    "/var",
-    "~",
-    "$HOME",
+]
+
+# Critical system files that should never be written to
+PROTECTED_WRITE_FILES: list[str] = [
+    "/etc/passwd",
+    "/etc/shadow",
+    "/etc/sudoers",
+    "/etc/hosts",
+    "/etc/fstab",
+    "/etc/ssh/sshd_config",
+    "/boot/grub/grub.cfg",
 ]
 
 # Track project directory for path validation
@@ -135,23 +143,48 @@ def set_project_dir(project_dir: str) -> None:
     _project_dir = str(Path(project_dir).resolve())
 
 
-def is_path_protected(path: str) -> bool:
-    """Check if a path is in the protected list.
+def is_delete_protected(path: str) -> bool:
+    """Check if a path is protected from deletion (rm).
 
     Args:
         path: The path to check.
 
     Returns:
-        True if the path should be protected.
+        True if the path should not be deleted.
     """
     # Normalize the path
     normalized = str(Path(path))
 
-    # Check exact matches
-    for protected in PROTECTED_PATHS:
+    # Check against protected delete paths
+    for protected in PROTECTED_DELETE_PATHS:
         if normalized == protected or normalized.startswith(protected + "/"):
             # Allow if it's within project directory
             return not (_project_dir and normalized.startswith(_project_dir))
+
+    return False
+
+
+def is_write_protected(path: str) -> bool:
+    """Check if a file is protected from writes.
+
+    Only blocks critical system files, not general directories.
+
+    Args:
+        path: The path to check.
+
+    Returns:
+        True if the file should not be written to.
+    """
+    # Normalize the path
+    try:
+        normalized = str(Path(path).resolve())
+    except (OSError, ValueError):
+        normalized = str(Path(path))
+
+    # Check against protected write files
+    for protected in PROTECTED_WRITE_FILES:
+        if normalized == protected or normalized.endswith(protected):
+            return True
 
     return False
 
@@ -275,7 +308,9 @@ def validate_rm_command(command_string: str) -> tuple[bool, str]:
             if token == "rm":
                 # Check subsequent tokens for protected paths
                 for path_token in tokens[i + 1 :]:
-                    if not path_token.startswith("-") and is_path_protected(path_token):
+                    if not path_token.startswith("-") and is_delete_protected(
+                        path_token
+                    ):
                         return (
                             False,
                             f"rm on protected path '{path_token}' is blocked",
@@ -443,10 +478,10 @@ async def write_security_hook(
     if not file_path:
         return {}
 
-    # Check if path is protected
-    if is_path_protected(file_path):
-        reason = f"Writing to protected path '{file_path}' is blocked"
-        logger.warning("Blocked write to protected path: %s", file_path)
+    # Check if file is a critical system file
+    if is_write_protected(file_path):
+        reason = f"Writing to critical system file '{file_path}' is blocked"
+        logger.warning("Blocked write to protected file: %s", file_path)
         return {
             "reason": reason,
             "systemMessage": f"Write blocked: {reason}",

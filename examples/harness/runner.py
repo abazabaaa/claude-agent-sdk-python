@@ -306,8 +306,11 @@ Examples:
     # Run with a simple prompt
     python runner.py --prompt "Help me refactor this codebase"
 
-    # Run with a prompt from a file
+    # Run with a prompt from a text file
     python runner.py --prompt-file task.txt
+
+    # Run with a prompt from a markdown file
+    python runner.py --prompt-file instructions.md
 
     # Run with a maximum number of iterations
     python runner.py --prompt "Implement feature X" --max-iterations 10
@@ -329,7 +332,7 @@ Examples:
     prompt_group.add_argument(
         "--prompt-file",
         type=Path,
-        help="Path to a file containing the prompt",
+        help="Path to a file containing the prompt (supports .txt, .md, etc.)",
     )
 
     parser.add_argument(
@@ -401,7 +404,11 @@ def main() -> None:
         if not args.prompt_file.exists():
             print(f"Error: Prompt file not found: {args.prompt_file}", file=sys.stderr)
             sys.exit(1)
-        prompt = args.prompt_file.read_text().strip()
+        try:
+            prompt = args.prompt_file.read_text(encoding="utf-8").strip()
+        except UnicodeDecodeError:
+            # Fallback to latin-1 if UTF-8 fails
+            prompt = args.prompt_file.read_text(encoding="latin-1").strip()
     else:
         prompt = args.prompt
 
