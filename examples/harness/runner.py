@@ -185,6 +185,7 @@ async def run_infinite_loop(
                 f"[bold cyan]Claude Agent SDK Runner[/bold cyan]\n\n"
                 f"[white]Model:[/white] [green]{MODEL_ID}[/green]\n"
                 f"[white]Thinking Tokens:[/white] [green]{MAX_THINKING_TOKENS:,}[/green]\n"
+                f"[white]Tools:[/white] [green]All Claude Code tools[/green]\n"
                 f"[white]Project Dir:[/white] [blue]{project_dir}[/blue]\n"
                 f"[white]Max Iterations:[/white] [yellow]{max_iterations or 'Infinite'}[/yellow]\n"
                 f"[white]Permission Mode:[/white] [magenta]{permission_mode}[/magenta]"
@@ -195,6 +196,9 @@ async def run_infinite_loop(
     )
 
     # Configure client options
+    # tools=None means all Claude Code tools are available:
+    # Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Task, etc.
+    # Security hooks block dangerous operations (rm -rf, writes to /etc/passwd, etc.)
     options = ClaudeAgentOptions(
         model=MODEL_ID,
         max_thinking_tokens=MAX_THINKING_TOKENS,
